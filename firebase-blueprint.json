@@ -1,0 +1,277 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "Base user profile for all roles (Admin, Trainer, Buyer).",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Firebase Auth UID" },
+        "email": { "type": "string", "format": "email" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string", "format": "uri" },
+        "role": { "type": "string", "enum": ["admin", "trainer", "buyer"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "isApproved": { "type": "boolean", "description": "Only for trainers" }
+      },
+      "required": ["uid", "email", "role"]
+    },
+    "Trainer": {
+      "title": "Trainer",
+      "description": "Extended profile for coaches.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Reference to User entity" },
+        "sport": { "type": "string" },
+        "categories": { "type": "array", "items": { "type": "string" } },
+        "specializations": { "type": "array", "items": { "type": "string" } },
+        "languages": { "type": "array", "items": { "type": "string" } },
+        "location": { "type": "string" },
+        "isOnline": { "type": "boolean" },
+        "isInPerson": { "type": "boolean" },
+        "experience": { "type": "number" },
+        "certifications": { "type": "array", "items": { "type": "string" } },
+        "bio": { "type": "string" },
+        "philosophy": { "type": "string" },
+        "sessionPrice": { "type": "number" },
+        "monthlyPlanPrice": { "type": "number" },
+        "videoUrl": { "type": "string", "format": "uri" },
+        "defaultMeetingLink": { "type": "string", "format": "uri" },
+        "sessionDuration": { "type": "number", "description": "Duration in minutes" },
+        "bufferTime": { "type": "number", "description": "Buffer between sessions in minutes" },
+        "rating": { "type": "number" },
+        "reviewCount": { "type": "number" },
+        "sessionsCompleted": { "type": "number" },
+        "successfulBookingsCount": { "type": "number" },
+        "responseTime": { "type": "string" },
+        "bannerUrl": { "type": "string", "format": "uri" },
+        "isFeatured": { "type": "boolean" },
+        "isVerified": { "type": "boolean", "description": "Indicates if the trainer has completed verification" },
+        "memberSince": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "sport", "sessionPrice"]
+    },
+    "Booking": {
+      "title": "Booking",
+      "description": "Session or plan booking record.",
+      "type": "object",
+      "properties": {
+        "buyerId": { "type": "string" },
+        "trainerId": { "type": "string" },
+        "trainerName": { "type": "string" },
+        "buyerName": { "type": "string" },
+        "type": { "type": "string", "enum": ["session", "package", "monthly"] },
+        "sessionType": { "type": "string", "description": "e.g. 1-on-1, Group" },
+        "bookingStatus": { "type": "string", "enum": ["pending", "confirmed", "completed", "cancelled", "refunded", "no_show"] },
+        "date": { "type": "string", "format": "date-time" },
+        "startTime": { "type": "string" },
+        "endTime": { "type": "string" },
+        "duration": { "type": "number" },
+        "price": { "type": "number" },
+        "commission": { "type": "number" },
+        "payoutAmount": { "type": "number" },
+        "paymentStatus": { "type": "string", "enum": ["unpaid", "paid", "refunded", "pending"] },
+        "stripeSessionId": { "type": "string" },
+        "trainerProfileId": { "type": "string" },
+        "meetingLink": { "type": "string", "format": "uri" },
+        "isReviewed": { "type": "boolean" },
+        "completedAt": { "type": "string", "format": "date-time" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["buyerId", "trainerId", "type", "bookingStatus", "price", "paymentStatus"]
+    },
+    "Payment": {
+      "title": "Payment",
+      "description": "Stripe payment record.",
+      "type": "object",
+      "properties": {
+        "bookingId": { "type": "string" },
+        "userId": { "type": "string" },
+        "amount": { "type": "number" },
+        "currency": { "type": "string" },
+        "status": { "type": "string" },
+        "stripeId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["bookingId", "userId", "amount", "status"]
+    },
+    "PlatformSettings": {
+      "title": "PlatformSettings",
+      "description": "Global platform configuration.",
+      "type": "object",
+      "properties": {
+        "commissionPercentage": { "type": "number" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "notifications": {
+          "type": "object",
+          "properties": {
+            "emailNewTrainerApplication": { "type": "boolean" },
+            "emailBookingConfirmation": { "type": "boolean" },
+            "emailPayoutRequest": { "type": "boolean" },
+            "emailFlaggedContent": { "type": "boolean" }
+          }
+        }
+      },
+      "required": ["commissionPercentage"]
+    },
+    "Review": {
+      "title": "Review",
+      "description": "Client review for a trainer.",
+      "type": "object",
+      "properties": {
+        "bookingId": { "type": "string" },
+        "buyerId": { "type": "string" },
+        "buyerName": { "type": "string" },
+        "trainerId": { "type": "string" },
+        "rating": { "type": "number" },
+        "comment": { "type": "string" },
+        "isFlagged": { "type": "boolean" },
+        "isHidden": { "type": "boolean" },
+        "moderationStatus": { "type": "string", "enum": ["pending", "approved", "rejected"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["bookingId", "buyerId", "trainerId", "rating"]
+    },
+    "Chat": {
+      "title": "Chat",
+      "description": "Conversation between a client and a trainer.",
+      "type": "object",
+      "properties": {
+        "participants": { "type": "array", "items": { "type": "string" } },
+        "trainerId": { "type": "string" },
+        "clientId": { "type": "string" },
+        "lastMessage": { "type": "string" },
+        "lastMessageTimestamp": { "type": "string", "format": "date-time" },
+        "unreadCount": { "type": "object" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["participants", "trainerId", "clientId"]
+    },
+    "Message": {
+      "title": "Message",
+      "description": "Individual message within a chat.",
+      "type": "object",
+      "properties": {
+        "chatId": { "type": "string" },
+        "senderId": { "type": "string" },
+        "text": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "read": { "type": "boolean" }
+      },
+      "required": ["chatId", "senderId", "text", "timestamp"]
+    },
+    "Call": {
+      "title": "Call",
+      "description": "Video call session associated with a chat.",
+      "type": "object",
+      "properties": {
+        "chatId": { "type": "string" },
+        "callerId": { "type": "string" },
+        "receiverId": { "type": "string" },
+        "status": { "type": "string", "enum": ["ringing", "active", "ended", "missed"] },
+        "roomName": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "endedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["chatId", "callerId", "receiverId", "status", "roomName"]
+    },
+    "Availability": {
+      "title": "Availability",
+      "description": "Trainer's available time slots.",
+      "type": "object",
+      "properties": {
+        "trainerId": { "type": "string" },
+        "dayOfWeek": { "type": "number", "description": "0-6 (Sunday-Saturday)" },
+        "startTime": { "type": "string", "description": "HH:mm format" },
+        "endTime": { "type": "string", "description": "HH:mm format" }
+      },
+      "required": ["trainerId", "dayOfWeek", "startTime", "endTime"]
+    },
+    "Notification": {
+      "title": "Notification",
+      "description": "In-app notification for users.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Recipient UID" },
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "type": { "type": "string", "enum": ["info", "success", "warning", "error"] },
+        "link": { "type": "string", "description": "Optional link to redirect" },
+        "read": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "title", "message", "type", "read", "createdAt"]
+    },
+    "EmailLog": {
+      "title": "EmailLog",
+      "description": "Log of sent emails.",
+      "type": "object",
+      "properties": {
+        "recipient": { "type": "string" },
+        "subject": { "type": "string" },
+        "template": { "type": "string" },
+        "status": { "type": "string", "enum": ["sent", "failed"] },
+        "error": { "type": "string" },
+        "resendId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["recipient", "subject", "template", "status", "createdAt"]
+    },
+    "Wallet": {
+      "title": "Wallet",
+      "description": "User wallet balance.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "balance": { "type": "number" },
+        "currency": { "type": "string" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "balance", "currency", "updatedAt"]
+    },
+    "Payout": {
+      "title": "Payout",
+      "description": "User payout request record.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "amount": { "type": "number" },
+        "status": { "type": "string", "enum": ["pending", "completed", "failed"] },
+        "stripePayoutId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "amount", "status", "createdAt"]
+    },
+    "Transaction": {
+      "title": "Transaction",
+      "description": "User wallet transaction record.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "type": { "type": "string", "enum": ["credit", "debit", "payout"] },
+        "amount": { "type": "number" },
+        "status": { "type": "string", "enum": ["pending", "completed", "failed"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "type", "amount", "status", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": { "schema": "User", "description": "User profiles" },
+    "/trainers/{trainerId}": { "schema": "Trainer", "description": "Trainer details" },
+    "/bookings/{bookingId}": { "schema": "Booking", "description": "Booking records" },
+    "/reviews/{reviewId}": { "schema": "Review", "description": "Trainer reviews" },
+    "/chats/{chatId}": { "schema": "Chat", "description": "Chat sessions" },
+    "/messages/{messageId}": { "schema": "Message", "description": "Chat messages" },
+    "/calls/{callId}": { "schema": "Call", "description": "Video call sessions" },
+    "/availability/{availabilityId}": { "schema": "Availability", "description": "Trainer availability slots" },
+    "/payments/{paymentId}": { "schema": "Payment", "description": "Payment records" },
+    "/platform_settings/{settingId}": { "schema": "PlatformSettings", "description": "Global settings" },
+    "/notifications/{notificationId}": { "schema": "Notification", "description": "User notifications" },
+    "/email_logs/{logId}": { "schema": "EmailLog", "description": "Logs of sent emails" },
+    "/wallets/{userId}": { "schema": "Wallet", "description": "User wallets" },
+    "/payouts/{payoutId}": { "schema": "Payout", "description": "Payout records" },
+    "/transactions/{transactionId}": { "schema": "Transaction", "description": "User transactions" }
+  }
+}

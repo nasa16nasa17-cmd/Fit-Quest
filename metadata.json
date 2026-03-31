@@ -1,0 +1,9 @@
+{
+  "name": "FitQuest Marketplace",
+  "description": "A premium fitness and sports coaching marketplace connecting elite trainers with performance-driven clients.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone",
+    "geolocation"
+  ]
+}
