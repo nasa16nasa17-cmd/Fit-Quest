@@ -11,6 +11,7 @@ import Auth from './pages/Auth';
 import TrainerApplication from './pages/TrainerApplication';
 import Dashboard from './pages/Dashboard';
 import About from './pages/About';
+import Blog from './pages/Blog';
 import FAQ from './pages/FAQ';
 import Messages from './pages/Messages';
 import TrainerSettings from './pages/TrainerSettings';
@@ -38,6 +39,7 @@ function App() {
               <Route path="/signup" element={<Auth />} />
               <Route path="/apply" element={<TrainerApplication />} />
               <Route path="/about" element={<About />} />
+              <Route path="/blog" element={<Blog />} />
               <Route path="/faq" element={<FAQ />} />
               <Route 
                 path="/messages" 

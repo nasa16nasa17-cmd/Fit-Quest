@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { motion, AnimatePresence } from 'motion/react';
 import { CheckCircle, ArrowRight, ArrowLeft, Upload, Award, Globe, MapPin, DollarSign, Loader2, AlertCircle } from 'lucide-react';
 import { collection, getDocs, query, orderBy } from 'firebase/firestore';
+import HowItWorks from '../components/trainer/HowItWorks';
 
 const TrainerApplication = () => {
   const { user, profile } = useAuth();
@@ -144,6 +145,9 @@ const TrainerApplication = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 py-20 px-4">
+      <div className="max-w-4xl mx-auto mb-20">
+        <HowItWorks />
+      </div>
       <div className="max-w-2xl mx-auto">
         {/* Progress Bar */}
         {step < 4 && (

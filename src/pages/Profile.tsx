@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { db } from '../lib/firebase';
+import { db, storage } from '../lib/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
-import { User, Mail, Camera, Save, CheckCircle } from 'lucide-react';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { User, Mail, Camera, Save, CheckCircle, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 const Profile = () => {
@@ -10,7 +11,26 @@ const Profile = () => {
   const [displayName, setDisplayName] = useState(profile?.displayName || '');
   const [photoURL, setPhotoURL] = useState(profile?.photoURL || '');
   const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || e.target.files.length === 0 || !user) return;
+    const file = e.target.files[0];
+    setUploading(true);
+    try {
+      const storageRef = ref(storage, `profiles/${user.uid}/${file.name}`);
+      await uploadBytes(storageRef, file);
+      const url = await getDownloadURL(storageRef);
+      setPhotoURL(url);
+    } catch (error) {
+      console.error("Error uploading file:", error);
+      alert("Failed to upload image.");
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -49,9 +69,24 @@ const Profile = () => {
                       <User className="w-8 h-8 text-gray-300" />
                     </div>
                   )}
-                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer">
+                  {uploading && (
+                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                      <Loader2 className="w-8 h-8 text-white animate-spin" />
+                    </div>
+                  )}
+                  <div 
+                    className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer"
+                    onClick={() => fileInputRef.current?.click()}
+                  >
                     <Camera className="w-6 h-6 text-white" />
                   </div>
+                  <input 
+                    type="file" 
+                    accept="image/*"
+                    onChange={handleFileChange}
+                    className="hidden"
+                    ref={fileInputRef}
+                  />
                 </div>
               </div>
             </div>

@@ -37,6 +37,7 @@ export interface TrainerProfile {
   isApproved?: boolean;
   successfulBookingsCount?: number;
   memberSince?: string;
+  photoURL?: string;
 }
 
 export type BookingStatus = 'pending' | 'confirmed' | 'completed' | 'cancelled' | 'refunded';

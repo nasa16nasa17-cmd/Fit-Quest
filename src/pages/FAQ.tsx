@@ -9,6 +9,7 @@ const FAQ = () => {
   const [loading, setLoading] = useState(true);
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [activeCategory, setActiveCategory] = useState("general");
 
   useEffect(() => {
     const q = query(collection(db, 'faqs'), orderBy('createdAt', 'desc'));
@@ -20,8 +21,9 @@ const FAQ = () => {
   }, []);
 
   const filteredFaqs = faqs.filter(faq => 
-    faq.question.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    faq.answer.toLowerCase().includes(searchQuery.toLowerCase())
+    (activeCategory === 'all' || faq.category === activeCategory) &&
+    (faq.question.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    faq.answer.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
   return (
@@ -30,6 +32,18 @@ const FAQ = () => {
         <div className="text-center mb-20">
           <h1 className="text-5xl lg:text-7xl font-bold tracking-tight mb-8 leading-tight">Got Questions?</h1>
           <p className="text-xl text-gray-500 mb-12">Everything you need to know about the FitQuest experience.</p>
+          
+          <div className="flex justify-center space-x-4 mb-12">
+            {['general', 'trainers', 'buyers'].map(cat => (
+              <button
+                key={cat}
+                onClick={() => setActiveCategory(cat)}
+                className={`px-6 py-3 rounded-full font-bold capitalize ${activeCategory === cat ? 'bg-black text-white' : 'bg-gray-100 text-gray-600'}`}
+              >
+                {cat}
+              </button>
+            ))}
+          </div>
           
           <div className="relative max-w-xl mx-auto">
             <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />

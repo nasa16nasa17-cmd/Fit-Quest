@@ -2,8 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { collection, query, onSnapshot, addDoc, deleteDoc, doc, updateDoc, getDocs, setDoc } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
 import { Plus, Trash2, FileText, Globe, Award, Save, Loader2, Info, HelpCircle } from 'lucide-react';
+import { useAuth } from '../../../context/AuthContext';
 
 const CMS = () => {
+  const { profile } = useAuth();
   const [activeSubTab, setActiveSubTab] = useState('specializations');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -12,6 +14,7 @@ const CMS = () => {
   const [specializations, setSpecializations] = useState<any[]>([]);
   const [languages, setLanguages] = useState<any[]>([]);
   const [faqs, setFaqs] = useState<any[]>([]);
+  const [blogPosts, setBlogPosts] = useState<any[]>([]);
   const [content, setContent] = useState<any>({
     heroTitle: 'Find Your Perfect Coach',
     heroSubtitle: 'Connect with expert trainers and athletes to reach your fitness goals.',
@@ -21,7 +24,7 @@ const CMS = () => {
 
   // Form states
   const [newItem, setNewItem] = useState('');
-  const [newFaq, setNewFaq] = useState({ question: '', answer: '' });
+  const [newFaq, setNewFaq] = useState({ question: '', answer: '', category: 'general' });
 
   useEffect(() => {
     // Listen for specializations
@@ -42,6 +45,12 @@ const CMS = () => {
       setFaqs(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     });
 
+    // Listen for blog posts
+    const qBlog = query(collection(db, 'blog_posts'));
+    const unsubscribeBlog = onSnapshot(qBlog, (snapshot) => {
+      setBlogPosts(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    });
+
     // Fetch content
     const fetchContent = async () => {
       const contentDoc = await getDocs(query(collection(db, 'platform_content')));
@@ -58,6 +67,7 @@ const CMS = () => {
       unsubscribeSpec();
       unsubscribeLang();
       unsubscribeFaq();
+      unsubscribeBlog();
     };
   }, []);
 
@@ -103,7 +113,7 @@ const CMS = () => {
         ...newFaq,
         createdAt: new Date().toISOString()
       });
-      setNewFaq({ question: '', answer: '' });
+      setNewFaq({ question: '', answer: '', category: 'general' });
     } catch (error) {
       console.error("Error adding FAQ:", error);
     }
@@ -120,6 +130,32 @@ const CMS = () => {
       setConfirmDelete(null);
     } catch (error) {
       console.error("Error deleting FAQ:", error);
+    }
+  };
+
+  const handleAddBlogPost = async (post: any) => {
+    try {
+      await addDoc(collection(db, 'blog_posts'), {
+        ...post,
+        createdAt: new Date().toISOString(),
+        status: 'published'
+      });
+    } catch (error) {
+      console.error("Error adding blog post:", error);
+    }
+  };
+
+  const handleDeleteBlogPost = async (id: string) => {
+    if (confirmDelete?.type !== 'blog' || confirmDelete?.id !== id) {
+      setConfirmDelete({ type: 'blog', id });
+      setTimeout(() => setConfirmDelete(null), 3000);
+      return;
+    }
+    try {
+      await deleteDoc(doc(db, 'blog_posts', id));
+      setConfirmDelete(null);
+    } catch (error) {
+      console.error("Error deleting blog post:", error);
     }
   };
 
@@ -173,6 +209,7 @@ const CMS = () => {
           { id: 'specializations', label: 'Specializations', icon: Award },
           { id: 'languages', label: 'Languages', icon: Globe },
           { id: 'faqs', label: 'FAQs', icon: HelpCircle },
+          { id: 'blog', label: 'Blog', icon: FileText },
           { id: 'content', label: 'Platform Content', icon: FileText },
         ].map(tab => (
           <button
@@ -200,6 +237,18 @@ const CMS = () => {
               </h3>
               <form onSubmit={handleAddFaq} className="space-y-6">
                 <div className="grid grid-cols-1 gap-6">
+                  <div>
+                    <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2 ml-4">Category</label>
+                    <select 
+                      value={newFaq.category}
+                      onChange={(e) => setNewFaq({...newFaq, category: e.target.value})}
+                      className="w-full px-8 py-5 bg-gray-50 border-none rounded-3xl focus:ring-2 focus:ring-black transition-all font-bold outline-none"
+                    >
+                      <option value="general">General</option>
+                      <option value="trainers">Trainers</option>
+                      <option value="buyers">Buyers</option>
+                    </select>
+                  </div>
                   <div>
                     <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2 ml-4">Question</label>
                     <input 
@@ -253,6 +302,46 @@ const CMS = () => {
                     No FAQs published yet.
                   </div>
                 )}
+              </div>
+            </div>
+          </div>
+        ) : activeSubTab === 'blog' ? (
+          <div className="lg:col-span-3 space-y-8">
+            <div className="bg-white p-10 rounded-[40px] border border-gray-100 shadow-sm">
+              <h3 className="text-xl font-bold mb-8 flex items-center">
+                <Plus className="w-5 h-5 mr-2 text-black" />
+                Add New Blog Post
+              </h3>
+              <form onSubmit={(e) => {
+                e.preventDefault();
+                const form = e.target as HTMLFormElement;
+                const formData = new FormData(form);
+                handleAddBlogPost({
+                  title: formData.get('title'),
+                  content: formData.get('content'),
+                  authorName: profile?.displayName || 'Admin'
+                });
+                form.reset();
+              }} className="space-y-6">
+                <input name="title" placeholder="Title" className="w-full px-8 py-5 bg-gray-50 border-none rounded-3xl font-bold outline-none" required />
+                <textarea name="content" placeholder="Content" className="w-full px-8 py-5 bg-gray-50 border-none rounded-3xl font-bold outline-none" rows={6} required />
+                <button type="submit" className="w-full py-5 bg-black text-white rounded-3xl font-black text-sm uppercase tracking-widest hover:bg-gray-800 transition-all shadow-xl shadow-black/10">Publish Post</button>
+              </form>
+            </div>
+            <div className="space-y-4">
+              <h3 className="text-xl font-bold px-4">Active Posts ({blogPosts.length})</h3>
+              <div className="grid grid-cols-1 gap-4">
+                {blogPosts.map((post) => (
+                  <div key={post.id} className="bg-white p-8 rounded-[40px] border border-gray-100 shadow-sm flex items-start justify-between group hover:shadow-md transition-all">
+                    <div className="flex-1">
+                      <h4 className="text-lg font-bold mb-2">{post.title}</h4>
+                      <p className="text-gray-500 leading-relaxed">{post.content.substring(0, 100)}...</p>
+                    </div>
+                    <button onClick={() => handleDeleteBlogPost(post.id)} className={`p-4 rounded-3xl transition-all ${confirmDelete?.id === post.id ? 'bg-red-600 text-white scale-110' : 'text-gray-300 hover:text-red-500 hover:bg-red-50 opacity-0 group-hover:opacity-100'}`}>
+                      <Trash2 className="w-5 h-5" />
+                    </button>
+                  </div>
+                ))}
               </div>
             </div>
           </div>

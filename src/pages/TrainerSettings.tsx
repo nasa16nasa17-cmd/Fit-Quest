@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { db, storage } from '../lib/firebase';
 import { useAuth } from '../context/AuthContext';
 import { TrainerProfile } from '../types';
-import { Save, ArrowLeft, Video, Info, DollarSign, MapPin, Globe } from 'lucide-react';
+import { Save, ArrowLeft, Video, Info, DollarSign, MapPin, Globe, Camera, Loader2 } from 'lucide-react';
 import { motion } from 'motion/react';
 
 const TrainerSettings = () => {
@@ -12,7 +13,26 @@ const TrainerSettings = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [trainerData, setTrainerData] = useState<Partial<TrainerProfile>>({});
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || e.target.files.length === 0 || !user) return;
+    const file = e.target.files[0];
+    setUploading(true);
+    try {
+      const storageRef = ref(storage, `trainers/${user.uid}/${file.name}`);
+      await uploadBytes(storageRef, file);
+      const url = await getDownloadURL(storageRef);
+      setTrainerData({ ...trainerData, photoURL: url });
+    } catch (error) {
+      console.error("Error uploading file:", error);
+      alert("Failed to upload image.");
+    } finally {
+      setUploading(false);
+    }
+  };
 
   useEffect(() => {
     const fetchTrainerData = async () => {
@@ -79,6 +99,39 @@ const TrainerSettings = () => {
             <h2 className="text-xl font-bold">Basic Information</h2>
           </div>
           
+          <div className="grid md:grid-cols-2 gap-6">
+            <div className="flex items-center space-x-6">
+              <div className="w-24 h-24 rounded-2xl bg-gray-100 overflow-hidden relative group">
+                {trainerData.photoURL ? (
+                  <img src={trainerData.photoURL} alt="Trainer" className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center">
+                    <Camera className="w-8 h-8 text-gray-300" />
+                  </div>
+                )}
+                {uploading && (
+                  <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                    <Loader2 className="w-8 h-8 text-white animate-spin" />
+                  </div>
+                )}
+                <div 
+                  className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <Camera className="w-6 h-6 text-white" />
+                </div>
+                <input 
+                  type="file" 
+                  accept="image/*"
+                  onChange={handleFileChange}
+                  className="hidden"
+                  ref={fileInputRef}
+                />
+              </div>
+              <p className="text-sm text-gray-500">Upload a profile picture for your trainer profile.</p>
+            </div>
+          </div>
+
           <div className="grid md:grid-cols-2 gap-6">
             <div>
               <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Sport / Discipline</label>
