@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { auth, db } from '../../lib/firebase';
-import { LogOut, User, Menu, X, Search, Bell, Info, Shield } from 'lucide-react';
+import { LogOut, User, Menu, X, Search, Bell, Info, Shield, Activity } from 'lucide-react';
 import { collection, query, where, onSnapshot, updateDoc, doc, orderBy, limit } from 'firebase/firestore';
 import { formatDistanceToNow } from 'date-fns';
 
@@ -52,6 +52,7 @@ const Navbar = () => {
         <div className="flex justify-between h-16">
           <div className="flex items-center">
             <Link to="/" className="flex-shrink-0 flex items-center">
+              <Activity className="w-8 h-8 mr-2 text-black" />
               <span className="text-2xl font-bold tracking-tighter text-black">FITQUEST</span>
             </Link>
             <div className="hidden md:ml-8 md:flex md:space-x-8">

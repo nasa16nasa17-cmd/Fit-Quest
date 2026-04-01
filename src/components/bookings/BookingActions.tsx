@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Video, CheckCircle, XCircle, Star, AlertTriangle } from 'lucide-react';
-import { doc, updateDoc, serverTimestamp, increment, addDoc, collection } from 'firebase/firestore';
+import { doc, updateDoc, serverTimestamp, increment, addDoc, collection, setDoc, getDoc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { Booking } from '../../types';
 import { useAuth } from '../../context/AuthContext';
@@ -36,6 +36,34 @@ const BookingActions: React.FC<BookingActionsProps> = ({ booking, userRole, onSt
         await updateDoc(trainerRef, {
           sessionsCompleted: increment(1),
           successfulBookingsCount: increment(1)
+        });
+
+        // Credit trainer wallet
+        const walletRef = doc(db, 'wallets', booking.trainerId);
+        const walletSnap = await getDoc(walletRef);
+        
+        const payoutAmount = booking.payoutAmount || (booking.price * 0.85); // Default to 85% if payoutAmount not set
+
+        if (walletSnap.exists()) {
+          await updateDoc(walletRef, {
+            balance: increment(payoutAmount),
+            updatedAt: serverTimestamp(),
+          });
+        } else {
+          await setDoc(walletRef, {
+            balance: payoutAmount,
+            currency: 'USD',
+            updatedAt: serverTimestamp(),
+          });
+        }
+
+        // Create transaction record
+        await addDoc(collection(db, 'transactions'), {
+          userId: booking.trainerId,
+          type: 'credit',
+          amount: payoutAmount,
+          bookingId: booking.id,
+          createdAt: serverTimestamp(),
         });
       }
 
