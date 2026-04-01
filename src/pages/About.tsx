@@ -101,7 +101,7 @@ const About = () => {
           <div className="flex items-center justify-center space-x-4">
             <div className="w-16 h-16 rounded-full bg-gray-800"></div>
             <div className="text-left">
-              <p className="font-bold text-xl">Alex Rivers</p>
+              <p className="font-bold text-xl">Osama Rafiq</p>
               <p className="text-gray-400 uppercase tracking-widest text-xs font-bold">Founder & CEO, FitQuest</p>
             </div>
           </div>

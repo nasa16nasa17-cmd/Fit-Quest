@@ -51,7 +51,7 @@ const TrainerCard: React.FC<TrainerCardProps> = ({ trainer }) => {
             <p className="text-gray-500 text-xs font-medium uppercase tracking-wider">{trainer.sport}</p>
           </div>
           <div className="flex items-center text-sm font-bold">
-            <Star className="w-4 h-4 fill-black mr-1" /> {trainer.rating.toFixed(1)}
+            <Star className="w-4 h-4 fill-black mr-1" /> {(trainer.rating || 0).toFixed(1)}
           </div>
         </div>
         

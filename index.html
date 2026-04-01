@@ -13,20 +13,6 @@
       window.onunhandledrejection = function(event) {
         console.error('Unhandled Rejection:', event.reason);
       };
-      
-      // Prevent TypeError when polyfills try to overwrite fetch
-      try {
-        const descriptor = Object.getOwnPropertyDescriptor(window, 'fetch');
-        if (descriptor && !descriptor.writable) {
-          Object.defineProperty(window, 'fetch', {
-            writable: true,
-            configurable: true,
-            value: window.fetch
-          });
-        }
-      } catch (e) {
-        console.warn('Could not make fetch writable:', e);
-      }
     </script>
   </head>
   <body>

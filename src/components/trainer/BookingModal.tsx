@@ -26,7 +26,6 @@ import {
 import { collection, query, where, getDocs, onSnapshot } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { TrainerProfile, UserProfile } from '../../types';
-import { motion, AnimatePresence } from 'motion/react';
 
 interface BookingModalProps {
   isOpen: boolean;
@@ -100,31 +99,44 @@ const BookingModal: React.FC<BookingModalProps> = ({
     const buffer = trainer.bufferTime || 15;
 
     dayAvailability.forEach(avail => {
-      const [startH, startM] = avail.startTime.split(':').map(Number);
-      const [endH, endM] = avail.endTime.split(':').map(Number);
+      if (!avail.startTime || !avail.endTime) return;
       
-      let current = setMinutes(setHours(startOfDay(selectedDate), startH), startM);
-      const end = setMinutes(setHours(startOfDay(selectedDate), endH), endM);
-
-      while (isBefore(addMinutes(current, duration), end) || isSameDay(current, end)) {
-        const slotStr = format(current, "yyyy-MM-dd'T'HH:mm:ss");
+      try {
+        const [startH, startM] = avail.startTime.split(':').map(Number);
+        const [endH, endM] = avail.endTime.split(':').map(Number);
         
-        // Check if slot is taken
-        const isTaken = existingBookings.some(b => {
-          const bStart = parseISO(b.date);
-          const bEnd = addMinutes(bStart, duration);
-          return (
-            (isAfter(current, bStart) && isBefore(current, bEnd)) ||
-            (isAfter(addMinutes(current, duration), bStart) && isBefore(addMinutes(current, duration), bEnd)) ||
-            isSameDay(current, bStart)
-          );
-        });
+        if (isNaN(startH) || isNaN(startM) || isNaN(endH) || isNaN(endM)) return;
 
-        if (!isTaken && isAfter(current, new Date())) {
-          slots.push(slotStr);
+        let current = setMinutes(setHours(startOfDay(selectedDate), startH), startM);
+        const end = setMinutes(setHours(startOfDay(selectedDate), endH), endM);
+
+        while (isBefore(addMinutes(current, duration), end) || isSameDay(current, end)) {
+          const slotStr = format(current, "yyyy-MM-dd'T'HH:mm:ss");
+          
+          // Check if slot is taken
+          const isTaken = existingBookings.some(b => {
+            if (!b.date) return false;
+            try {
+              const bStart = parseISO(b.date);
+              const bEnd = addMinutes(bStart, duration);
+              return (
+                (isAfter(current, bStart) && isBefore(current, bEnd)) ||
+                (isAfter(addMinutes(current, duration), bStart) && isBefore(addMinutes(current, duration), bEnd)) ||
+                isSameDay(current, bStart)
+              );
+            } catch (e) {
+              return false;
+            }
+          });
+
+          if (!isTaken && isAfter(current, new Date())) {
+            slots.push(slotStr);
+          }
+          
+          current = addMinutes(current, duration + buffer);
         }
-        
-        current = addMinutes(current, duration + buffer);
+      } catch (e) {
+        console.error("Error calculating slots for availability:", avail, e);
       }
     });
 
@@ -171,9 +183,7 @@ const BookingModal: React.FC<BookingModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <motion.div 
-        initial={{ opacity: 0, scale: 0.9, y: 20 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
+      <div 
         className="bg-white w-full max-w-2xl rounded-[40px] shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
       >
         {/* Header */}
@@ -194,13 +204,8 @@ const BookingModal: React.FC<BookingModalProps> = ({
 
         {/* Content */}
         <div className="flex-grow overflow-y-auto p-8 lg:p-12">
-          <AnimatePresence mode="wait">
             {step === 'type' && (
-              <motion.div 
-                key="type"
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -20 }}
+              <div 
                 className="space-y-6"
               >
                 <h3 className="text-2xl font-bold mb-8">Choose your coaching type</h3>
@@ -245,15 +250,11 @@ const BookingModal: React.FC<BookingModalProps> = ({
                     </button>
                   )}
                 </div>
-              </motion.div>
+              </div>
             )}
 
             {step === 'date' && (
-              <motion.div 
-                key="date"
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -20 }}
+              <div 
                 className="space-y-8"
               >
                 <div className="flex items-center justify-between mb-4">
@@ -287,15 +288,11 @@ const BookingModal: React.FC<BookingModalProps> = ({
                     Next <ChevronRight className="ml-2 w-5 h-5" />
                   </button>
                 </div>
-              </motion.div>
+              </div>
             )}
 
             {step === 'time' && (
-              <motion.div 
-                key="time"
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -20 }}
+              <div 
                 className="space-y-8"
               >
                 <h3 className="text-2xl font-bold mb-8">Available slots for {format(selectedDate, 'EEEE, MMM do')}</h3>
@@ -335,15 +332,11 @@ const BookingModal: React.FC<BookingModalProps> = ({
                     Review <ChevronRight className="ml-2 w-5 h-5" />
                   </button>
                 </div>
-              </motion.div>
+              </div>
             )}
 
             {step === 'confirm' && (
-              <motion.div 
-                key="confirm"
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -20 }}
+              <div 
                 className="space-y-8"
               >
                 <h3 className="text-2xl font-bold mb-8">Review your booking</h3>
@@ -384,11 +377,10 @@ const BookingModal: React.FC<BookingModalProps> = ({
                     {loading ? 'Processing...' : 'Confirm & Pay'} <ArrowRight className="ml-2 w-5 h-5" />
                   </button>
                 </div>
-              </motion.div>
+              </div>
             )}
-          </AnimatePresence>
         </div>
-      </motion.div>
+      </div>
     </div>
   );
 };

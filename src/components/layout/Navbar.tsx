@@ -3,7 +3,6 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { auth, db } from '../../lib/firebase';
 import { LogOut, User, Menu, X, Search, Bell, Info, Shield } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
 import { collection, query, where, onSnapshot, updateDoc, doc, orderBy, limit } from 'firebase/firestore';
 import { formatDistanceToNow } from 'date-fns';
 
@@ -78,12 +77,8 @@ const Navbar = () => {
                     )}
                   </button>
 
-                  <AnimatePresence>
                     {showNotifications && (
-                      <motion.div 
-                        initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                        <div 
                         className="absolute right-0 mt-4 w-80 bg-white rounded-3xl shadow-2xl border border-gray-100 overflow-hidden z-50"
                       >
                         <div className="p-4 border-b border-gray-50 flex justify-between items-center bg-gray-50/50">
@@ -117,9 +112,8 @@ const Navbar = () => {
                             </div>
                           )}
                         </div>
-                      </motion.div>
+                      </div>
                     )}
-                  </AnimatePresence>
                 </div>
 
                 {isAdmin && (
@@ -169,12 +163,8 @@ const Navbar = () => {
         </div>
       </div>
 
-      <AnimatePresence>
         {isOpen && (
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
+          <div
             className="md:hidden bg-white border-b border-gray-100"
           >
             <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
@@ -192,9 +182,8 @@ const Navbar = () => {
                 </>
               )}
             </div>
-          </motion.div>
+          </div>
         )}
-      </AnimatePresence>
     </nav>
   );
 };

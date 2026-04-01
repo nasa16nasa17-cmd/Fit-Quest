@@ -150,7 +150,7 @@ const Profile = () => {
         <div className="mt-8 grid md:grid-cols-3 gap-6">
           <div className="bg-white p-6 rounded-3xl border border-gray-100">
             <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1">Joined</p>
-            <p className="font-bold">{new Date(user.metadata.creationTime || '').toLocaleDateString()}</p>
+            <p className="font-bold">{user.metadata.creationTime ? new Date(user.metadata.creationTime).toLocaleDateString() : 'N/A'}</p>
           </div>
           <div className="bg-white p-6 rounded-3xl border border-gray-100">
             <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1">Account Type</p>

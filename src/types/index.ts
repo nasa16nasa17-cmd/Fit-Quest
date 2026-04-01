@@ -27,14 +27,16 @@ export interface TrainerProfile {
   sessionPrice: number;
   monthlyPlanPrice?: number;
   videoUrl?: string;
-  rating: number;
-  reviewCount: number;
+  rating?: number;
+  reviewCount?: number;
   sessionsCompleted: number;
   responseTime: string;
   bannerUrl?: string;
   isFeatured?: boolean;
   isVerified?: boolean;
   isApproved?: boolean;
+  successfulBookingsCount?: number;
+  memberSince?: string;
 }
 
 export type BookingStatus = 'pending' | 'confirmed' | 'completed' | 'cancelled' | 'refunded';
@@ -68,6 +70,8 @@ export interface Review {
   rating: number;
   comment: string;
   createdAt: string;
+  buyerName?: string;
+  isHidden?: boolean;
 }
 
 export interface Chat {

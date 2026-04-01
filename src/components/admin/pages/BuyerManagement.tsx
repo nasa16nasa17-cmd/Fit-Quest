@@ -108,7 +108,7 @@ const BuyerManagement = ({ handleSuspend }: { handleSuspend: (id: string, status
                   <td className="px-8 py-6">
                     <div className="flex items-center space-x-2 text-sm font-bold text-gray-600">
                       <Calendar className="w-4 h-4 text-gray-400" />
-                      <span>{buyer.createdAt ? new Date(buyer.createdAt).toLocaleDateString() : 'N/A'}</span>
+                      <span>{buyer.createdAt ? (buyer.createdAt.seconds ? new Date(buyer.createdAt.seconds * 1000).toLocaleDateString() : new Date(buyer.createdAt).toLocaleDateString()) : 'N/A'}</span>
                     </div>
                   </td>
                   <td className="px-8 py-6">

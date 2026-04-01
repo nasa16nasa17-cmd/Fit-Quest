@@ -36,6 +36,15 @@ const Messages = () => {
   const [incomingCall, setIncomingCall] = useState<Call | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  const getOtherParticipant = (chat?: Chat) => {
+    if (!chat || !chat.participants) return null;
+    const otherId = chat.participants.find(uid => uid !== user?.uid);
+    return otherId ? chatUsers[otherId] : null;
+  };
+
+  const activeChat = chats.find(c => c.id === activeChatId);
+  const activeOtherUser = getOtherParticipant(activeChat);
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
@@ -62,11 +71,13 @@ const Messages = () => {
       // Fetch user profiles for participants we don't have yet
       const uidsToFetch = new Set<string>();
       chatsData.forEach(chat => {
-        chat.participants.forEach(uid => {
-          if (uid !== user.uid && !chatUsers[uid]) {
-            uidsToFetch.add(uid);
-          }
-        });
+        if (chat.participants) {
+          chat.participants.forEach(uid => {
+            if (uid !== user.uid && !chatUsers[uid]) {
+              uidsToFetch.add(uid);
+            }
+          });
+        }
       });
 
       if (uidsToFetch.size > 0) {
@@ -265,11 +276,6 @@ const Messages = () => {
     }
   };
 
-  const getOtherParticipant = (chat: Chat) => {
-    const otherId = chat.participants.find(uid => uid !== user?.uid);
-    return otherId ? chatUsers[otherId] : null;
-  };
-
   if (!user) return null;
 
   return (
@@ -410,8 +416,8 @@ const Messages = () => {
                   <ArrowLeft className="w-5 h-5" />
                 </button>
                 <div className="w-10 h-10 rounded-full bg-gray-100 overflow-hidden">
-                  {getOtherParticipant(chats.find(c => c.id === activeChatId)!)?.photoURL ? (
-                    <img src={getOtherParticipant(chats.find(c => c.id === activeChatId)!)?.photoURL} alt="" className="w-full h-full object-cover" />
+                  {activeOtherUser?.photoURL ? (
+                    <img src={activeOtherUser.photoURL} alt="" className="w-full h-full object-cover" />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center">
                       <UserIcon className="text-gray-300 w-5 h-5" />
@@ -420,7 +426,7 @@ const Messages = () => {
                 </div>
                 <div>
                   <h2 className="font-bold leading-tight">
-                    {getOtherParticipant(chats.find(c => c.id === activeChatId)!)?.displayName || 'Loading...'}
+                    {activeOtherUser?.displayName || 'Loading...'}
                   </h2>
                   <span className="text-[10px] text-green-500 font-bold uppercase tracking-widest">
                     {activeCall?.status === 'ringing' ? 'Ringing...' : 'Online'}

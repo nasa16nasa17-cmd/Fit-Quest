@@ -6,12 +6,11 @@ import { db } from '../lib/firebase';
 import { useAuth } from '../context/AuthContext';
 import { TrainerProfile as ITrainerProfile, UserProfile, Review, Chat } from '../types';
 import { Star, MapPin, Globe, CheckCircle, Calendar, MessageSquare, Award, Clock, ArrowRight, Play, ShieldCheck } from 'lucide-react';
-import { motion } from 'motion/react';
 import { loadStripe } from '@stripe/stripe-js';
 import { format } from 'date-fns';
 import BookingModal from '../components/trainer/BookingModal';
 
-const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || '');
+const stripePromise = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY ? loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY) : null;
 
 const TrainerProfile = () => {
   const { id } = useParams<{ id: string }>();
@@ -31,7 +30,7 @@ const TrainerProfile = () => {
       return;
     }
 
-    if (!trainer || !userProfile) return;
+    if (!trainer || !userProfile || !trainer.userId) return;
 
     setMessageLoading(true);
     try {
@@ -70,7 +69,7 @@ const TrainerProfile = () => {
       return;
     }
 
-    if (!trainer || !userProfile) return;
+    if (!trainer || !userProfile || !trainer.userId) return;
 
     setBookingLoading(true);
     try {
@@ -96,6 +95,8 @@ const TrainerProfile = () => {
         const stripe = await stripePromise;
         if (stripe) {
           await (stripe as any).redirectToCheckout({ sessionId: session.id });
+        } else {
+          console.error("Stripe not initialized");
         }
       }
     } catch (error) {
@@ -108,21 +109,32 @@ const TrainerProfile = () => {
 
   useEffect(() => {
     const fetchTrainerData = async () => {
+      console.log("Fetching trainer data for ID:", id);
       if (!id) return;
       setLoading(true);
       try {
         const trainerDoc = await getDoc(doc(db, 'trainers', id));
+        console.log("Trainer doc exists:", trainerDoc.exists());
         if (trainerDoc.exists()) {
           const tData = { id: trainerDoc.id, ...trainerDoc.data() } as ITrainerProfile;
+          console.log("Trainer data fetched:", tData);
           setTrainer(tData);
           
           const userDoc = await getDoc(doc(db, 'users', tData.userId));
+          console.log("User doc exists:", userDoc.exists());
           if (userDoc.exists()) {
-            setUserProfile(userDoc.data() as UserProfile);
+            const uData = userDoc.data() as UserProfile;
+            console.log("User data fetched:", uData);
+            setUserProfile(uData);
+          } else {
+            console.warn("User doc does not exist for ID:", tData.userId);
           }
 
           const reviewsSnap = await getDocs(query(collection(db, 'reviews'), where('trainerId', '==', id)));
+          console.log("Reviews count:", reviewsSnap.size);
           setReviews(reviewsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Review)));
+        } else {
+          console.warn("Trainer doc does not exist for ID:", id);
         }
       } catch (error) {
         console.error("Error fetching trainer profile:", error);
@@ -135,7 +147,7 @@ const TrainerProfile = () => {
   }, [id]);
 
   if (loading) return <div className="flex items-center justify-center h-screen">Loading...</div>;
-  if (!trainer || !userProfile) return <div className="text-center py-32">Trainer not found</div>;
+  if (!trainer || !userProfile) return <div className="text-center py-32">Trainer not found (Trainer: {!!trainer}, User: {!!userProfile})</div>;
 
   return (
     <div className="bg-white min-h-screen">
@@ -176,7 +188,7 @@ const TrainerProfile = () => {
                 <p className="text-xl text-gray-500 font-medium mb-4">{trainer.sport} • {trainer.experience}y Experience</p>
                 <div className="flex flex-wrap gap-3">
                   <span className="bg-gray-100 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider flex items-center">
-                    <Star className="w-3 h-3 mr-1 fill-black" /> {trainer.rating.toFixed(1)} ({trainer.reviewCount} reviews)
+                    <Star className="w-3 h-3 mr-1 fill-black" /> {(trainer.rating || 0).toFixed(1)} ({trainer.reviewCount || 0} reviews)
                   </span>
                   <span className="bg-gray-100 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider flex items-center">
                     <CheckCircle className="w-3 h-3 mr-1" /> {trainer.successfulBookingsCount || 0} Successful Bookings
@@ -186,7 +198,16 @@ const TrainerProfile = () => {
                   </span>
                   {trainer.memberSince && (
                     <span className="bg-gray-100 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider flex items-center">
-                      <Clock className="w-3 h-3 mr-1" /> Member since {format(new Date(trainer.memberSince), 'MMM yyyy')}
+                      <Clock className="w-3 h-3 mr-1" /> Member since {(() => {
+                        try {
+                          const d = (trainer.memberSince as any).seconds 
+                            ? new Date((trainer.memberSince as any).seconds * 1000) 
+                            : new Date(trainer.memberSince);
+                          return isNaN(d.getTime()) ? 'N/A' : format(d, 'MMM yyyy');
+                        } catch (e) {
+                          return 'N/A';
+                        }
+                      })()}
                     </span>
                   )}
                   {trainer.isOnline && (
@@ -217,7 +238,7 @@ const TrainerProfile = () => {
               <section>
                 <h2 className="text-2xl font-bold mb-6">Specializations</h2>
                 <div className="flex flex-wrap gap-3">
-                  {trainer.specializations.map((spec, i) => (
+                  {(trainer.specializations || []).map((spec, i) => (
                     <span key={i} className="px-6 py-3 bg-white border border-gray-200 rounded-2xl text-sm font-medium">
                       {spec}
                     </span>
@@ -258,7 +279,7 @@ const TrainerProfile = () => {
                 <div className="flex justify-between items-center mb-8">
                   <h2 className="text-2xl font-bold">Reviews</h2>
                   <div className="flex items-center text-xl font-bold">
-                    <Star className="w-6 h-6 fill-black mr-2" /> {trainer.rating.toFixed(1)}
+                    <Star className="w-6 h-6 fill-black mr-2" /> {(trainer.rating || 0).toFixed(1)}
                   </div>
                 </div>
                 <div className="space-y-8">
@@ -270,10 +291,25 @@ const TrainerProfile = () => {
                         </div>
                         <div>
                           <h4 className="font-bold">{review.buyerName || 'Anonymous Athlete'}</h4>
-                          <div className="flex text-yellow-400">
-                            {[...Array(5)].map((_, i) => (
-                              <Star key={i} className={`w-3 h-3 ${i < review.rating ? 'fill-current' : 'text-gray-200'}`} />
-                            ))}
+                          <div className="flex items-center space-x-2">
+                            <div className="flex text-yellow-400">
+                              {[...Array(5)].map((_, i) => (
+                                <Star key={i} className={`w-3 h-3 ${i < review.rating ? 'fill-current' : 'text-gray-200'}`} />
+                              ))}
+                            </div>
+                            <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">
+                              {(() => {
+                                try {
+                                  if (!review.createdAt) return 'Recently';
+                                  const d = (review.createdAt as any).seconds 
+                                    ? new Date((review.createdAt as any).seconds * 1000) 
+                                    : new Date(review.createdAt);
+                                  return isNaN(d.getTime()) ? 'Recently' : format(d, 'MMM d, yyyy');
+                                } catch (e) {
+                                  return 'Recently';
+                                }
+                              })()}
+                            </span>
                           </div>
                         </div>
                       </div>
