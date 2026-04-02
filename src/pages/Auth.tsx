@@ -190,6 +190,10 @@ const Auth = () => {
             {isSignUp ? 'Log in' : 'Sign up'}
           </Link>
         </p>
+        <p className="text-center text-gray-400 mt-8 text-[10px] uppercase tracking-widest font-bold">
+          By continuing, you agree to our{' '}
+          <Link to="/terms" className="text-black hover:underline">Terms of Service</Link>
+        </p>
       </motion.div>
     </div>
   );

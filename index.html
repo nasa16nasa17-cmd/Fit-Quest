@@ -14,6 +14,25 @@
       window.onunhandledrejection = function(event) {
         console.error('Unhandled Rejection:', event.reason);
       };
+
+      // Diagnostic for fetch error
+      try {
+        const descriptor = Object.getOwnPropertyDescriptor(window, 'fetch');
+        console.log('Fetch descriptor:', descriptor);
+        if (descriptor && !descriptor.configurable) {
+          console.warn('window.fetch is not configurable');
+        } else {
+          // Try to protect it if it is configurable
+          const originalFetch = window.fetch;
+          Object.defineProperty(window, 'fetch', {
+            get: function() { return originalFetch; },
+            set: function() { console.warn('Attempt to overwrite window.fetch blocked'); },
+            configurable: false
+          });
+        }
+      } catch (e) {
+        console.error('Error checking/protecting fetch descriptor:', e);
+      }
     </script>
   </head>
   <body>

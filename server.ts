@@ -3,9 +3,12 @@ import { createServer as createViteServer } from "vite";
 import path from "path";
 import { fileURLToPath } from "url";
 import fs from "fs";
+import crypto from "crypto";
 import Stripe from "stripe";
 import dotenv from "dotenv";
-import { adminDb as db, adminAuth, admin } from "./src/lib/firebase-admin.ts";
+import multer from "multer";
+import axios from "axios";
+import { adminDb as db, adminAuth, admin, adminStorage } from "./src/lib/firebase-admin.ts";
 import { sendEmail } from "./src/lib/email.server.ts";
 import { 
   getAdminNewApplicationEmail, 
@@ -91,6 +94,307 @@ export async function startServer() {
   // API routes go here
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok" });
+  });
+
+  // Multer setup for file uploads
+  const upload = multer({
+    storage: multer.memoryStorage(),
+    limits: {
+      fileSize: 5 * 1024 * 1024, // 5MB limit
+    },
+  });
+
+  app.get("/api/debug/storage", async (req, res) => {
+    try {
+      const firebaseConfig = JSON.parse(fs.readFileSync("./firebase-applet-config.json", "utf-8"));
+      const results: any = {
+        config: firebaseConfig,
+        bucketTests: []
+      };
+
+      const firebaseConfigEnv = process.env.FIREBASE_CONFIG ? JSON.parse(process.env.FIREBASE_CONFIG) : {};
+      
+      const internalProjectId = "ais-asia-east1-859624691e66473";
+      const projectNumberFromUrl = "657076569855";
+      const kService = process.env.K_SERVICE || "";
+      const appletId = process.env.APPLET_ID || "";
+      
+      results.adminOptions = admin.app().options;
+      results.defaultBucketName = adminStorage.bucket().name;
+      
+      const namesToTry = [
+        firebaseConfig.storageBucket,
+        firebaseConfigEnv.storageBucket,
+        process.env.FIREBASE_STORAGE_BUCKET,
+        process.env.STORAGE_BUCKET,
+        `${firebaseConfig.projectId}.firebasestorage.app`,
+        `${firebaseConfig.projectId}.appspot.com`,
+        `${internalProjectId}.appspot.com`,
+        `${internalProjectId}.firebasestorage.app`,
+        `${projectNumberFromUrl}.appspot.com`,
+        `${projectNumberFromUrl}.firebasestorage.app`,
+        `${kService}.appspot.com`,
+        `${kService}.firebasestorage.app`,
+        `${appletId}.appspot.com`,
+        `${appletId}.firebasestorage.app`,
+        internalProjectId,
+        projectNumberFromUrl,
+        `aistudio-${firebaseConfig.projectId}.appspot.com`,
+        `aistudio-${internalProjectId}.appspot.com`,
+        `aistudio-${projectNumberFromUrl}.appspot.com`,
+        `aistudio-${appletId}.appspot.com`,
+        `${firebaseConfig.projectId}-storage`,
+        `${firebaseConfig.projectId}-bucket`,
+        `${internalProjectId}-storage`,
+        `${internalProjectId}-bucket`,
+        `${projectNumberFromUrl}-storage`,
+        `${projectNumberFromUrl}-bucket`,
+        `${firebaseConfig.firestoreDatabaseId}.appspot.com`,
+        `${firebaseConfig.firestoreDatabaseId}.firebasestorage.app`,
+        `${firebaseConfig.firestoreDatabaseId}`,
+        `${firebaseConfig.projectId}.asia-east1.firebasestorage.app`,
+        `${firebaseConfig.projectId}.asia-east1.appspot.com`,
+        `${firebaseConfig.projectId}.us-central1.firebasestorage.app`,
+        `${firebaseConfig.projectId}.us-central1.appspot.com`,
+        `${firebaseConfig.messagingSenderId}.asia-east1.appspot.com`,
+        `${firebaseConfig.messagingSenderId}.asia-east1.firebasestorage.app`,
+        `${firebaseConfig.messagingSenderId}.appspot.com`,
+        `${firebaseConfig.messagingSenderId}.firebasestorage.app`,
+        `staging.${firebaseConfig.projectId}.appspot.com`,
+        `staging.${internalProjectId}.appspot.com`,
+        `staging.${projectNumberFromUrl}.appspot.com`,
+        firebaseConfig.projectId,
+        "default-bucket"
+      ].filter(Boolean) as string[];
+
+      // Remove duplicates
+      const uniqueNames = Array.from(new Set(namesToTry));
+      
+      const allEnv: Record<string, string> = {};
+      for (const key of Object.keys(process.env)) {
+        const val = process.env[key] || "";
+        allEnv[key] = val.length > 20 ? val.substring(0, 10) + "..." + val.substring(val.length - 5) : val;
+      }
+      results.allEnv = allEnv;
+
+      try {
+        const response = await axios.get("http://metadata.google.internal/computeMetadata/v1/project/project-id", {
+          headers: { "Metadata-Flavor": "Google" },
+          timeout: 2000
+        });
+        results.metadataProjectId = response.data;
+      } catch (e: any) {
+        results.metadataError = e.message;
+      }
+
+      try {
+        const response = await axios.get("http://metadata.google.internal/computeMetadata/v1/project/numeric-project-id", {
+          headers: { "Metadata-Flavor": "Google" },
+          timeout: 2000
+        });
+        results.metadataProjectNumber = response.data;
+      } catch (e: any) {
+        results.metadataNumberError = e.message;
+      }
+
+      try {
+        const [buckets] = await (admin.storage() as any).getBuckets();
+        results.allBuckets = buckets.map((b: any) => b.name);
+      } catch (listErr: any) {
+        results.listError = listErr.message;
+        // Try another way
+        try {
+          const [buckets] = await (admin.storage().bucket() as any).storage.getBuckets();
+          results.allBuckets2 = buckets.map((b: any) => b.name);
+        } catch (listErr2: any) {
+          results.listError2 = listErr2.message;
+        }
+      }
+
+      for (const name of uniqueNames) {
+        try {
+          const b = name === "default-bucket" ? admin.storage().bucket() : admin.storage().bucket(name);
+          // exists() can fail due to permissions even if the bucket exists and is writable
+          let exists = false;
+          try {
+            const [existsRes] = await b.exists();
+            exists = existsRes;
+          } catch (e) {
+            console.warn(`Exists check failed for ${b.name}:`, e);
+          }
+          
+          let writeTest = "not attempted";
+          try {
+            const testFile = b.file(`debug_test_${Date.now()}.txt`);
+            await testFile.save("test", { resumable: false });
+            writeTest = "success";
+            await testFile.delete();
+          } catch (writeErr: any) {
+            writeTest = `failed: ${writeErr.message}`;
+          }
+
+          results.bucketTests.push({ 
+            name: b.name, 
+            exists, 
+            writeTest,
+            source: name 
+          });
+        } catch (err: any) {
+          results.bucketTests.push({ name, error: err.message, source: name });
+        }
+      }
+
+      res.json(results);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message, stack: error.stack });
+    }
+  });
+
+  app.post("/api/upload", upload.single("file"), async (req, res) => {
+    console.log("POST /api/upload - Request received");
+    try {
+      const file = req.file;
+      const filePath = req.body.path; 
+
+      if (!file) {
+        console.error("No file uploaded");
+        return res.status(400).json({ error: "No file uploaded" });
+      }
+
+      if (!filePath) {
+        console.error("Missing path");
+        return res.status(400).json({ error: "Missing path" });
+      }
+
+      const firebaseConfig = JSON.parse(fs.readFileSync("./firebase-applet-config.json", "utf-8"));
+      
+      let bucket = null;
+
+      const firebaseConfigEnv = process.env.FIREBASE_CONFIG ? JSON.parse(process.env.FIREBASE_CONFIG) : {};
+      const internalProjectId = "ais-asia-east1-859624691e66473";
+      const projectNumberFromUrl = "657076569855";
+      const kService = process.env.K_SERVICE || "";
+      const appletId = process.env.APPLET_ID || "";
+      
+      // Since we can't list buckets due to permissions, we try known patterns
+      const namesToTry = [
+        firebaseConfig.storageBucket,
+        firebaseConfigEnv.storageBucket,
+        process.env.FIREBASE_STORAGE_BUCKET,
+        process.env.STORAGE_BUCKET,
+        `${firebaseConfig.projectId}.firebasestorage.app`,
+        `${firebaseConfig.projectId}.appspot.com`,
+        `${internalProjectId}.appspot.com`,
+        `${internalProjectId}.firebasestorage.app`,
+        `${projectNumberFromUrl}.appspot.com`,
+        `${projectNumberFromUrl}.firebasestorage.app`,
+        `${kService}.appspot.com`,
+        `${kService}.firebasestorage.app`,
+        `${appletId}.appspot.com`,
+        `${appletId}.firebasestorage.app`,
+        `aistudio-${firebaseConfig.projectId}.appspot.com`,
+        `aistudio-${internalProjectId}.appspot.com`,
+        `aistudio-${projectNumberFromUrl}.appspot.com`,
+        `aistudio-${appletId}.appspot.com`,
+        `${firebaseConfig.projectId}.asia-east1.firebasestorage.app`,
+        `${firebaseConfig.projectId}.asia-east1.appspot.com`,
+        `${firebaseConfig.projectId}.us-central1.firebasestorage.app`,
+        `${firebaseConfig.projectId}.us-central1.appspot.com`,
+        `${firebaseConfig.messagingSenderId}.asia-east1.appspot.com`,
+        `${firebaseConfig.messagingSenderId}.asia-east1.firebasestorage.app`,
+        `${firebaseConfig.messagingSenderId}.appspot.com`,
+        `${firebaseConfig.messagingSenderId}.firebasestorage.app`,
+        `staging.${firebaseConfig.projectId}.appspot.com`,
+        `staging.${internalProjectId}.appspot.com`,
+        `staging.${projectNumberFromUrl}.appspot.com`,
+        `staging.${appletId}.appspot.com`,
+        firebaseConfig.projectId
+      ].filter(Boolean) as string[];
+
+      const uniqueNames = Array.from(new Set(namesToTry));
+      console.log("Attempting to find bucket among:", uniqueNames);
+
+      for (const name of uniqueNames) {
+        try {
+          console.log(`Checking bucket: ${name}`);
+          const b = admin.storage().bucket(name);
+          const [exists] = await b.exists();
+          if (exists) {
+            bucket = b;
+            console.log(`Found valid bucket (exists=true): ${name}`);
+            break;
+          }
+        } catch (err: any) {
+          console.warn(`Check for bucket ${name} failed or denied:`, err.message);
+          if (err.message.includes('permission') || err.message.includes('access')) {
+            if (name === firebaseConfig.storageBucket || name === firebaseConfigEnv.storageBucket) {
+              console.log(`Bucket ${name} returned permission error but matches config. Using it as primary candidate.`);
+              bucket = admin.storage().bucket(name);
+              break;
+            }
+          }
+        }
+      }
+
+      // Final fallback: use the default bucket or the config bucket blindly
+      if (!bucket) {
+        if (firebaseConfig.storageBucket) {
+          console.log(`No verified bucket found, using config bucket blindly: ${firebaseConfig.storageBucket}`);
+          bucket = admin.storage().bucket(firebaseConfig.storageBucket);
+        } else {
+          console.log("No specific bucket found, using default admin.storage().bucket()");
+          bucket = admin.storage().bucket();
+        }
+      }
+      
+      console.log(`Final bucket choice for upload: ${bucket.name}`);
+      const blob = bucket.file(filePath);
+      
+      const downloadToken = crypto.randomUUID();
+      const blobStream = blob.createWriteStream({
+        metadata: {
+          contentType: file.mimetype,
+          cacheControl: 'public, max-age=31536000',
+          metadata: {
+            firebaseStorageDownloadTokens: downloadToken
+          }
+        },
+        resumable: false,
+      });
+
+      blobStream.on("error", (err) => {
+        console.error("Upload stream error:", err);
+        if (!res.headersSent) {
+          res.status(500).json({ 
+            error: `Upload stream error: ${err.message}. This often happens if the bucket name is incorrect or permissions are missing.`,
+            bucketName: bucket.name,
+            projectId: firebaseConfig.projectId,
+            triedNames: namesToTry,
+            tip: "If you see 'The specified bucket does not exist', the bucket name in firebase-applet-config.json might be wrong."
+          });
+        }
+      });
+
+      blobStream.on("finish", async () => {
+        try {
+          const encodedPath = filePath.split('/').map(p => encodeURIComponent(p)).join('%2F');
+          const url = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodedPath}?alt=media&token=${downloadToken}`;
+          
+          console.log("Upload successful, URL generated:", url);
+          res.json({ url });
+        } catch (err: any) {
+          console.error("Error generating URL:", err);
+          res.status(500).json({ error: `Error generating URL: ${err.message}` });
+        }
+      });
+
+      blobStream.end(file.buffer);
+    } catch (error: any) {
+      console.error("Upload route error:", error);
+      if (!res.headersSent) {
+        res.status(500).json({ error: error.message });
+      }
+    }
   });
 
   // Helper to check admin status

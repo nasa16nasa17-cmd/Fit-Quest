@@ -1,9 +1,35 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Search, Star, Shield, Zap, Users, ArrowRight } from 'lucide-react';
+import { Search, Star, Shield, Zap, Users, ArrowRight, Loader2 } from 'lucide-react';
 import { motion } from 'motion/react';
+import { collection, query, getDocs } from 'firebase/firestore';
+import { db } from '../lib/firebase';
 
 const Home = () => {
+  const [content, setContent] = useState<any>({
+    heroTitle: 'ELITE COACHING FOR PEAK HUMAN PERFORMANCE.',
+    heroSubtitle: "Connect with the world's most qualified fitness professionals. Personalized training, nutrition, and mindset coaching at your fingertips.",
+    aboutText: 'FITQUEST is a premier marketplace connecting dedicated athletes with world-class coaches across all sports disciplines.',
+    footerText: '© 2026 FITQUEST. All rights reserved.'
+  });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchContent = async () => {
+      try {
+        const contentDoc = await getDocs(query(collection(db, 'platform_content')));
+        if (!contentDoc.empty) {
+          const data = contentDoc.docs[0].data();
+          setContent(prev => ({ ...prev, ...data }));
+        }
+      } catch (error) {
+        console.error("Error fetching platform content:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchContent();
+  }, []);
   const categories = [
     { name: 'Personal Training', icon: '🏋️‍♂️' },
     { name: 'Yoga & Pilates', icon: '🧘‍♀️' },
@@ -16,17 +42,24 @@ const Home = () => {
   return (
     <div className="overflow-hidden">
       {/* Hero Section */}
-      <section className="relative pt-20 pb-32 lg:pt-32 lg:pb-48">
+      <section className="relative pt-8 pb-32 lg:pt-16 lg:pb-48">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="lg:w-2/3">
             <motion.h1 
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="text-[60px] font-bold tracking-tighter leading-none mb-8"
+              className="text-[60px] font-bold tracking-tighter leading-none mb-8 uppercase"
             >
-              ELITE COACHING <br />
-              <span className="text-gray-400">FOR PEAK HUMAN</span> <br />
-              PERFORMANCE.
+              {content.heroTitle.split(' ').map((word, i) => (
+                <React.Fragment key={i}>
+                  {word === 'PEAK' || word === 'HUMAN' || word === 'PERFORMANCE.' ? (
+                    <span className="text-gray-400">{word} </span>
+                  ) : (
+                    <>{word} </>
+                  )}
+                  {i === 1 || i === 4 ? <br /> : null}
+                </React.Fragment>
+              ))}
             </motion.h1>
             <motion.p 
               initial={{ opacity: 0, y: 20 }}
@@ -34,8 +67,7 @@ const Home = () => {
               transition={{ delay: 0.1 }}
               className="text-xl text-gray-500 max-w-xl mb-12"
             >
-              Connect with the world's most qualified fitness professionals. 
-              Personalized training, nutrition, and mindset coaching at your fingertips.
+              {content.heroSubtitle}
             </motion.p>
             <motion.div 
               initial={{ opacity: 0, y: 20 }}

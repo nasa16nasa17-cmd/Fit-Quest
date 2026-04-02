@@ -135,7 +135,7 @@ const Navbar = () => {
                 </button>
                 <Link to="/profile" className="flex items-center space-x-2">
                   {profile?.photoURL ? (
-                    <img src={profile.photoURL} alt="" className="w-8 h-8 rounded-full border border-gray-200" />
+                    <img src={profile.photoURL} alt="" className="w-8 h-8 rounded-full border border-gray-200" referrerPolicy="no-referrer" />
                   ) : (
                     <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center border border-gray-200">
                       <User className="w-4 h-4 text-gray-400" />

@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { doc, updateDoc, getDocs, query, collection, where } from 'firebase/firestore';
-import { db } from '../../lib/firebase';
-import { User, Camera, Save, CheckCircle, Video } from 'lucide-react';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { db, storage } from '../../lib/firebase';
+import { User, Camera, Save, CheckCircle, Video, Loader2, Bug } from 'lucide-react';
 import { motion } from 'motion/react';
 
 const ProfileSettings = () => {
@@ -12,7 +13,10 @@ const ProfileSettings = () => {
   const [defaultMeetingLink, setDefaultMeetingLink] = useState('');
   const [trainerDocId, setTrainerDocId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const fetchTrainerData = async () => {
@@ -27,6 +31,49 @@ const ProfileSettings = () => {
     };
     fetchTrainerData();
   }, [user, profile]);
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || e.target.files.length === 0 || !user) return;
+    const file = e.target.files[0];
+    
+    // Firestore has a 1MB limit per document. Base64 adds ~33% overhead.
+    // We'll limit to 500KB to be safe and keep performance decent.
+    if (file.size > 500 * 1024) {
+      setError("Image is too large for direct storage. Please choose a smaller image (under 500KB) or use a URL.");
+      return;
+    }
+
+    setUploading(true);
+    setError(null);
+    
+    try {
+      const reader = new FileReader();
+      const base64Promise = new Promise<string>((resolve, reject) => {
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+
+      const base64String = await base64Promise;
+      
+      setPhotoURL(base64String);
+      
+      // Update User profile immediately in Firestore
+      await updateDoc(doc(db, 'users', user.uid), {
+        photoURL: base64String,
+        updatedAt: new Date().toISOString(),
+      });
+      
+      setSuccess(true);
+      setTimeout(() => setSuccess(false), 3000);
+    } catch (err: any) {
+      console.error("Error processing photo:", err);
+      setError(`Failed to process image: ${err.message}`);
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -72,17 +119,52 @@ const ProfileSettings = () => {
           {/* Profile Picture */}
           <div className="flex flex-col items-center space-y-4">
             <div className="relative group">
-              <div className="w-32 h-32 rounded-full bg-gray-100 border-4 border-white shadow-lg overflow-hidden flex items-center justify-center">
+              <div className="w-32 h-32 rounded-full bg-gray-100 border-4 border-white shadow-lg overflow-hidden flex items-center justify-center relative">
                 {photoURL ? (
-                  <img src={photoURL} alt="Profile" className="w-full h-full object-cover" />
+                  <img src={photoURL} alt="Profile" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                 ) : (
                   <User className="w-12 h-12 text-gray-300" />
                 )}
+                {uploading && (
+                  <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center z-20">
+                    <Loader2 className="w-6 h-6 text-white animate-spin mb-1" />
+                    <span className="text-[8px] font-bold text-white uppercase tracking-widest">Uploading</span>
+                    <button 
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setUploading(false);
+                        setError("Upload cancelled by user.");
+                      }}
+                      className="mt-2 text-[8px] text-white/60 hover:text-white underline uppercase tracking-tighter"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                )}
               </div>
-              <div className="absolute inset-0 bg-black/40 rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer">
+              <div 
+                className="absolute inset-0 bg-black/40 rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer"
+                onClick={() => fileInputRef.current?.click()}
+              >
                 <Camera className="w-8 h-8 text-white" />
               </div>
+              <input 
+                type="file" 
+                ref={fileInputRef}
+                onChange={handleFileChange}
+                accept="image/*"
+                className="hidden"
+              />
             </div>
+            
+            {error && (
+              <div className="p-3 bg-red-50 text-red-600 rounded-xl text-[10px] font-bold uppercase tracking-widest flex items-center">
+                <Bug className="w-3 h-3 mr-2" />
+                {error}
+              </div>
+            )}
+
             <div className="w-full">
               <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Profile Picture URL</label>
               <input 

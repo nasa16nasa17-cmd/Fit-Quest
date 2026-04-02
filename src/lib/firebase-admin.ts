@@ -22,10 +22,11 @@ import fs from "fs";
 
 const firebaseConfig = JSON.parse(fs.readFileSync("./firebase-applet-config.json", "utf-8"));
 
-// Initialize Admin SDK (still used for Auth)
+// Initialize Admin SDK (still used for Auth and Storage)
 if (!admin.apps.length) {
   admin.initializeApp({
     projectId: firebaseConfig.projectId,
+    storageBucket: firebaseConfig.storageBucket,
   });
 }
 
@@ -76,6 +77,7 @@ export const adminDb = {
 } as any;
 
 export const adminAuth = admin.auth();
+export const adminStorage = admin.storage();
 export { admin };
 
 console.log("Firebase 'Client-on-Server' wrapper initialized.");

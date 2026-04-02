@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { collection, query, onSnapshot, addDoc, deleteDoc, doc, updateDoc, getDocs, setDoc } from 'firebase/firestore';
-import { db } from '../../../lib/firebase';
-import { Plus, Trash2, FileText, Globe, Award, Save, Loader2, Info, HelpCircle } from 'lucide-react';
+import { ref, uploadBytes, getDownloadURL, uploadBytesResumable, uploadString } from 'firebase/storage';
+import { db, storage } from '../../../lib/firebase';
+import { Plus, Trash2, FileText, Globe, Award, Save, Loader2, Info, HelpCircle, Camera, CheckCircle } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
 
 const CMS = () => {
@@ -9,6 +10,7 @@ const CMS = () => {
   const [activeSubTab, setActiveSubTab] = useState('specializations');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [showSetupGuide, setShowSetupGuide] = useState(false);
   
   // Data states
   const [specializations, setSpecializations] = useState<any[]>([]);
@@ -25,6 +27,8 @@ const CMS = () => {
   // Form states
   const [newItem, setNewItem] = useState('');
   const [newFaq, setNewFaq] = useState({ question: '', answer: '', category: 'general' });
+  const [newPost, setNewPost] = useState({ title: '', content: '', imageUrl: '' });
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   useEffect(() => {
     // Listen for specializations
@@ -133,15 +137,68 @@ const CMS = () => {
     }
   };
 
-  const handleAddBlogPost = async (post: any) => {
+  const handleAddBlogPost = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newPost.title.trim() || !newPost.content.trim()) return;
+    
+    setSaving(true);
     try {
       await addDoc(collection(db, 'blog_posts'), {
-        ...post,
+        ...newPost,
+        authorName: profile?.displayName || 'Admin',
         createdAt: new Date().toISOString(),
         status: 'published'
       });
+      setNewPost({ title: '', content: '', imageUrl: '' });
+      alert('Blog post published!');
     } catch (error) {
       console.error("Error adding blog post:", error);
+      alert('Failed to publish blog post.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Limit file size to 5MB
+    if (file.size > 5 * 1024 * 1024) {
+      alert("File is too large. Please choose an image under 5MB.");
+      return;
+    }
+
+    console.log("Starting blog image upload for:", file.name, "Size:", file.size);
+    setUploadingImage(true);
+    
+    try {
+      const filePath = `blog/${Date.now()}_${file.name}`;
+      console.log("Uploading via server API (v2)...");
+      
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('path', filePath);
+
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Upload failed");
+      }
+
+      const { url } = await response.json();
+      console.log("Upload successful, URL obtained:", url);
+      setNewPost(prev => ({ ...prev, imageUrl: url }));
+    } catch (error: any) {
+      console.error("Error in handleImageUpload:", error);
+      alert(`Upload failed: ${error.message || 'Unknown error'}`);
+    } finally {
+      setUploadingImage(false);
+      e.target.value = '';
     }
   };
 
@@ -211,6 +268,7 @@ const CMS = () => {
           { id: 'faqs', label: 'FAQs', icon: HelpCircle },
           { id: 'blog', label: 'Blog', icon: FileText },
           { id: 'content', label: 'Platform Content', icon: FileText },
+          { id: 'setup', label: 'Setup Guide', icon: Info },
         ].map(tab => (
           <button
             key={tab.id}
@@ -312,20 +370,62 @@ const CMS = () => {
                 <Plus className="w-5 h-5 mr-2 text-black" />
                 Add New Blog Post
               </h3>
-              <form onSubmit={(e) => {
-                e.preventDefault();
-                const form = e.target as HTMLFormElement;
-                const formData = new FormData(form);
-                handleAddBlogPost({
-                  title: formData.get('title'),
-                  content: formData.get('content'),
-                  authorName: profile?.displayName || 'Admin'
-                });
-                form.reset();
-              }} className="space-y-6">
-                <input name="title" placeholder="Title" className="w-full px-8 py-5 bg-gray-50 border-none rounded-3xl font-bold outline-none" required />
-                <textarea name="content" placeholder="Content" className="w-full px-8 py-5 bg-gray-50 border-none rounded-3xl font-bold outline-none" rows={6} required />
-                <button type="submit" className="w-full py-5 bg-black text-white rounded-3xl font-black text-sm uppercase tracking-widest hover:bg-gray-800 transition-all shadow-xl shadow-black/10">Publish Post</button>
+              <form onSubmit={handleAddBlogPost} className="space-y-6">
+                <div className="space-y-4">
+                  <div className="relative h-48 bg-gray-50 rounded-3xl overflow-hidden border-2 border-dashed border-gray-200 group">
+                    {newPost.imageUrl ? (
+                      <img src={newPost.imageUrl} alt="Preview" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                    ) : (
+                      <div className="w-full h-full flex flex-col items-center justify-center text-gray-400">
+                        <Camera className="w-8 h-8 mb-2" />
+                        <span className="text-xs font-bold uppercase tracking-widest">Upload Cover Image</span>
+                      </div>
+                    )}
+                    <input 
+                      type="file" 
+                      accept="image/*" 
+                      onChange={handleImageUpload}
+                      className="absolute inset-0 opacity-0 cursor-pointer"
+                    />
+                    {uploadingImage && (
+                      <div className="absolute inset-0 bg-white/80 flex items-center justify-center">
+                        <Loader2 className="w-6 h-6 animate-spin text-black" />
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-gray-400 font-medium uppercase tracking-wider mb-4">JPG, PNG • Max 5MB • 1200x630 Recommended</p>
+
+                  <div className="space-y-4">
+                    <input 
+                      value={newPost.imageUrl}
+                      onChange={(e) => setNewPost({...newPost, imageUrl: e.target.value})}
+                      placeholder="Image URL (Optional Fallback)" 
+                      className="w-full px-8 py-5 bg-gray-50 border-none rounded-3xl font-bold outline-none text-sm" 
+                    />
+                    <input 
+                      value={newPost.title}
+                      onChange={(e) => setNewPost({...newPost, title: e.target.value})}
+                      placeholder="Title" 
+                      className="w-full px-8 py-5 bg-gray-50 border-none rounded-3xl font-bold outline-none" 
+                      required 
+                    />
+                  </div>
+                  <textarea 
+                    value={newPost.content}
+                    onChange={(e) => setNewPost({...newPost, content: e.target.value})}
+                    placeholder="Content" 
+                    className="w-full px-8 py-5 bg-gray-50 border-none rounded-3xl font-bold outline-none" 
+                    rows={6} 
+                    required 
+                  />
+                </div>
+                <button 
+                  type="submit" 
+                  disabled={saving || uploadingImage}
+                  className="w-full py-5 bg-black text-white rounded-3xl font-black text-sm uppercase tracking-widest hover:bg-gray-800 transition-all shadow-xl shadow-black/10 disabled:opacity-50"
+                >
+                  {saving ? 'Publishing...' : 'Publish Post'}
+                </button>
               </form>
             </div>
             <div className="space-y-4">
@@ -455,6 +555,98 @@ const CMS = () => {
           </div>
         )}
       </div>
+      {activeSubTab === 'setup' && (
+        <div className="bg-white p-8 rounded-[40px] border border-gray-100 shadow-sm space-y-8">
+          <div className="max-w-3xl">
+            <h2 className="text-2xl font-black mb-4">Firebase Setup Guide</h2>
+            <p className="text-gray-500 mb-8">
+              To ensure all features work correctly (especially photo uploads), follow these steps to configure your Firebase project.
+            </p>
+
+            <div className="space-y-12">
+              <section className="space-y-4">
+                <div className="flex items-center space-x-3">
+                  <div className="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center text-blue-600 font-bold">1</div>
+                  <h3 className="text-xl font-bold">Configure Storage CORS</h3>
+                </div>
+                <p className="text-gray-600 text-sm leading-relaxed">
+                  If you see "CORS" errors when uploading, you need to allow your app's domain to access Firebase Storage.
+                </p>
+                <div className="bg-gray-900 rounded-2xl p-6 overflow-x-auto">
+                  <pre className="text-blue-400 text-xs font-mono">
+{`# Create a cors.json file:
+[
+  {
+    "origin": ["*"],
+    "method": ["GET", "POST", "PUT", "DELETE", "HEAD"],
+    "responseHeader": ["Content-Type"],
+    "maxAgeSeconds": 3600
+  }
+]
+
+# Run this command in your terminal:
+gsutil cors set cors.json gs://your-project-id.appspot.com`}
+                  </pre>
+                </div>
+              </section>
+
+              <section className="space-y-4">
+                <div className="flex items-center space-x-3">
+                  <div className="w-8 h-8 bg-green-50 rounded-lg flex items-center justify-center text-green-600 font-bold">2</div>
+                  <h3 className="text-xl font-bold">Enable Public Access</h3>
+                </div>
+                <p className="text-gray-600 text-sm leading-relaxed">
+                  Ensure your Storage rules allow public reads for profile pictures and blog images.
+                </p>
+                <div className="bg-gray-50 rounded-2xl p-6 border border-gray-100">
+                  <code className="text-xs text-gray-700 block whitespace-pre">
+{`rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /{allPaths=**} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+  }
+}`}
+                  </code>
+                </div>
+              </section>
+
+              <section className="space-y-4">
+                <div className="flex items-center space-x-3">
+                  <div className="w-8 h-8 bg-purple-50 rounded-lg flex items-center justify-center text-purple-600 font-bold">3</div>
+                  <h3 className="text-xl font-bold">Upload Requirements</h3>
+                </div>
+                <div className="bg-gray-50 rounded-2xl p-6 border border-gray-100">
+                  <ul className="space-y-2 text-sm text-gray-600">
+                    <li className="flex items-center"><CheckCircle className="w-4 h-4 mr-2 text-green-500" /> <strong>Max File Size:</strong> 5MB</li>
+                    <li className="flex items-center"><CheckCircle className="w-4 h-4 mr-2 text-green-500" /> <strong>Formats:</strong> JPG, PNG, WEBP</li>
+                    <li className="flex items-center"><CheckCircle className="w-4 h-4 mr-2 text-green-500" /> <strong>Profile Pics:</strong> 400x400px (Square)</li>
+                    <li className="flex items-center"><CheckCircle className="w-4 h-4 mr-2 text-green-500" /> <strong>Blog Images:</strong> 1200x630px (Landscape)</li>
+                  </ul>
+                </div>
+              </section>
+
+              <section className="space-y-4">
+                <div className="flex items-center space-x-3">
+                  <div className="w-8 h-8 bg-red-50 rounded-lg flex items-center justify-center text-red-600 font-bold">4</div>
+                  <h3 className="text-xl font-bold">Troubleshooting Uploads</h3>
+                </div>
+                <div className="bg-red-50/30 rounded-2xl p-6 border border-red-100">
+                  <h4 className="font-bold text-red-800 mb-2">If images don't show up:</h4>
+                  <ul className="space-y-3 text-sm text-red-700 list-disc pl-5">
+                    <li><strong>Check Console:</strong> If you see "CORS error", follow Step 1 above exactly.</li>
+                    <li><strong>Check Public Access:</strong> If you see "403 Forbidden", ensure Step 2 is applied to your Storage Rules.</li>
+                    <li><strong>Bucket Name:</strong> Ensure your <code>firebase-applet-config.json</code> has the correct <code>storageBucket</code>.</li>
+                    <li><strong>Fallback:</strong> Use the "Manual URL" field in your profile if the upload fails.</li>
+                  </ul>
+                </div>
+              </section>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -16,6 +16,7 @@ import FAQ from './pages/FAQ';
 import Messages from './pages/Messages';
 import TrainerSettings from './pages/TrainerSettings';
 import Profile from './pages/Profile';
+import TermsOfService from './pages/TermsOfService';
 import ErrorBoundary from './components/common/ErrorBoundary';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -41,6 +42,7 @@ function App() {
               <Route path="/about" element={<About />} />
               <Route path="/blog" element={<Blog />} />
               <Route path="/faq" element={<FAQ />} />
+              <Route path="/terms" element={<TermsOfService />} />
               <Route 
                 path="/messages" 
                 element={
